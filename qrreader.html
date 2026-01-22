@@ -1,40 +1,55 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Scanner & Gen</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background: #000; color: #fff; text-align: center; }
-        .screen { display: none; padding: 20px; flex-direction: column; align-items: center; min-height: 100vh; }
+        .screen { display: none; padding: 20px; flex-direction: column; align-items: center; min-height: 100vh; box-sizing: border-box; }
         .active { display: flex; }
         
-        /* カメラ映像の設定 */
-        #video-container { position: relative; width: 90%; max-width: 500px; aspect-ratio: 3/4; overflow: hidden; background: #222; border-radius: 10px; }
-        video { 
-            position: absolute; width: 100%; height: 100%; object-fit: cover;
-            /* 右90度回転 & 左右反転 (鏡像) */
-            transform: scaleX(-1); 
+        /* --- 修正点1 & 2: カメラ映像の表示設定 --- */
+        #video-container { 
+            position: relative; 
+            width: 100%; /* 幅いっぱいに */
+            max-width: 600px; /* 最大幅を設定 */
+            overflow: hidden; 
+            background: #222; 
+            border-radius: 10px;
+            margin-bottom: 20px;
         }
+        video { 
+            width: 100%;
+            height: auto; /* 高さは自動調整 */
+            display: block;
+            /* transform: scaleX(-1);  <-- 左右反転を削除 */
+        }
+        /* --------------------------------------- */
         
         /* 読み取り結果画面 */
-        #result-area { width: 90%; margin-top: 20px; }
-        textarea { width: 100%; height: 150px; font-size: 16px; padding: 10px; border-radius: 5px; }
+        #result-area { width: 90%; max-width: 600px; margin-top: 20px; }
+        textarea { width: 100%; height: 120px; font-size: 16px; padding: 10px; border-radius: 5px; box-sizing: border-box; color: #000; }
         
         /* ボタン類 */
         button { 
-            width: 90%; padding: 15px; margin: 10px 0; font-size: 18px; font-weight: bold;
+            width: 100%; max-width: 600px; padding: 15px; margin: 10px 0; font-size: 18px; font-weight: bold;
             border: none; border-radius: 8px; cursor: pointer;
         }
         .btn-blue { background: #007bff; color: white; }
         .btn-green { background: #28a745; color: white; }
         .btn-gray { background: #555; color: white; }
+        
+        /* 修正点3: URLを開くボタンのスタイル */
+        #open-url-btn { display: none; } /* 初期状態は非表示 */
 
         /* QRコード表示エリア */
-        #qrcode-output { margin-top: 20px; padding: 10px; background: white; border-radius: 10px; }
+        #qrcode-output { margin-top: 20px; padding: 20px; background: white; border-radius: 10px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -45,7 +60,7 @@
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas" hidden></canvas>
         </div>
-        <p>QRコードを枠内に写してください</p>
+        <p>QRコードをカメラに写してください</p>
         <button class="btn-blue" onclick="switchScreen('generator-screen')">QRコードを作成する</button>
     </div>
 
@@ -53,6 +68,8 @@
         <h2>[ Scan Result ]</h2>
         <div id="result-area">
             <textarea id="result-text" readonly></textarea>
+            
+            <button id="open-url-btn" class="btn-blue" onclick="openURL()">🔗 URLを開く</button>
             <button class="btn-green" onclick="copyResult()">結果をコピー</button>
             <button class="btn-gray" onclick="restartScanner()">もう一度スキャン</button>
         </div>
@@ -60,88 +77,155 @@
 
     <div id="generator-screen" class="screen">
         <h2>[ QR Generator ]</h2>
-        <input type="text" id="qr-input" value="https://" style="width: 90%; padding: 15px; font-size: 16px; margin-bottom: 10px;">
+        <input type="text" id="qr-input" value="https://" style="width: 90%; max-width: 600px; padding: 15px; font-size: 16px; margin-bottom: 10px; box-sizing: border-box;">
         <button class="btn-blue" onclick="generateQR()">QRコードを生成</button>
         <div id="qrcode-output"></div>
         <button class="btn-gray" onclick="switchScreen('scanner-screen')" style="margin-top: 30px;">スキャナーに戻る</button>
     </div>
 
     <script>
+        // Service Workerの登録 (オフライン対応)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Service Worker Registered'))
+                .catch((err) => console.log('SW registration failed', err));
+        }
+
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas').getContext('2d');
         const resultText = document.getElementById('result-text');
+        const openUrlBtn = document.getElementById('open-url-btn'); // URLボタンを取得
         let stream = null;
+        let isScanning = false;
 
         // カメラ開始
         async function startCamera() {
             try {
+                // 背面カメラを優先的に使用
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 video.srcObject = stream;
-                requestAnimationFrame(tick);
+                video.onloadedmetadata = () => {
+                    isScanning = true;
+                    requestAnimationFrame(tick);
+                };
             } catch (err) {
-                alert("カメラの起動に失敗しました: " + err);
+                alert("カメラの起動に失敗しました。\nブラウザのカメラへのアクセスを許可してください。");
+                console.error(err);
             }
         }
 
         // スキャンループ
         function tick() {
+            if (!isScanning) return;
+            
             if (video.readyState === video.HAVE_ENOUGH_DATA && document.getElementById('scanner-screen').classList.contains('active')) {
                 const cvs = document.getElementById('canvas');
                 cvs.height = video.videoHeight;
                 cvs.width = video.videoWidth;
                 canvas.drawImage(video, 0, 0, cvs.width, cvs.height);
                 const imageData = canvas.getImageData(0, 0, cvs.width, cvs.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
 
                 if (code) {
                     showResult(code.data);
-                    return;
+                    return; // スキャン成功したらループを止める
                 }
             }
             requestAnimationFrame(tick);
         }
 
         function showResult(data) {
+            isScanning = false; // スキャン停止
             resultText.value = data;
+            
+            // --- 修正点3: URLかどうかの判定とボタン表示 ---
+            if (data.startsWith('http://') || data.startsWith('https://')) {
+                openUrlBtn.style.display = 'block'; // URLならボタンを表示
+            } else {
+                openUrlBtn.style.display = 'none';  // URLでなければ非表示
+            }
+            // ---------------------------------------
+            
             switchScreen('result-screen');
         }
 
+        // URLを開く関数
+        function openURL() {
+            const url = resultText.value;
+            if (url) {
+                window.open(url, '_blank'); // 新しいタブで開く
+            }
+        }
+
         function restartScanner() {
+            resultText.value = "";
+            openUrlBtn.style.display = 'none';
             switchScreen('scanner-screen');
+            isScanning = true;
+            requestAnimationFrame(tick); // スキャン再開
         }
 
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
-            if(screenId === 'scanner-screen') tick();
+            
+            // スキャナー画面から離れるときはスキャンを停止
+            if (screenId !== 'scanner-screen') {
+                isScanning = false;
+            } else {
+                 // スキャナー画面に戻るときは、カメラが準備できていれば再開
+                 if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    isScanning = true;
+                    requestAnimationFrame(tick);
+                 }
+            }
         }
 
         function copyResult() {
             resultText.select();
+            // モバイル端末でのコピー対応
+            resultText.setSelectionRange(0, 99999); 
+
+            try {
+                // 新しいClipboard APIを試す
+                navigator.clipboard.writeText(resultText.value).then(() => {
+                    alert("コピーしました！");
+                }).catch(err => {
+                    // 失敗したら古い方法で試す
+                    console.error('Clipboard API failed, trying execCommand', err);
+                    fallbackCopyTextToClipboard(resultText.value);
+                });
+            } catch (err) {
+                 fallbackCopyTextToClipboard(resultText.value);
+            }
+        }
+        
+        function fallbackCopyTextToClipboard(text) {
             document.execCommand('copy');
-            alert("コピーしました！");
+            alert("コピーしました！（たぶん）");
         }
 
         function generateQR() {
             const output = document.getElementById('qrcode-output');
-            output.innerHTML = "";
+            output.innerHTML = ""; // 前のQRコードをクリア
+            const text = document.getElementById('qr-input').value;
+            if (!text) return;
+
             new QRCode(output, {
-                text: document.getElementById('qr-input').value,
-                width: 200, height: 200
+                text: text,
+                width: 200,
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
             });
         }
 
+        // ページ読み込み時にカメラを開始
         window.onload = startCamera;
-        
-        // サービスワーカーの登録
-        if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(() => console.log('Offline mode ready'))
-            .catch((err) => console.log('SW registration failed', err));
-    }
-    
-    
-
     </script>
 </body>
 </html>
+
