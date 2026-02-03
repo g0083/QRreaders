@@ -1,0 +1,355 @@
+/* 全体設定 */
+html,
+body {
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    text-align: center;
+    position: fixed;
+    width: 100%;
+}
+
+.screen {
+    display: none;
+    padding: 10px;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.active {
+    display: flex;
+}
+
+/* 復活：オレンジ色のインストールボタン */
+#install-area {
+    width: 100%;
+    max-width: 600px;
+    flex-shrink: 0;
+    display: none;
+    margin-bottom: 5px;
+}
+
+#install-button {
+    width: 100%;
+    padding: 12px;
+    background: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* ヘッダー：3カラムグリッドでタイトルを完全に中央配置 */
+.header {
+    width: 100%;
+    max-width: 600px;
+    display: grid;
+    grid-template-columns: 50px 1fr 50px;
+    align-items: center;
+    min-height: 50px;
+    flex-shrink: 0;
+}
+
+.header-spacer {
+    width: 50px;
+}
+
+h2 {
+    font-size: 1.1rem;
+    margin: 0;
+    color: #aaa;
+}
+
+.header-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 10px;
+    width: 50px !important;
+    height: 50px !important;
+}
+
+#lang-btn {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+/* カメラエリア */
+#video-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    flex-grow: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #222;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 正円のライトボタン */
+.torch-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.icon-btn {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid #444;
+    border-radius: 50% !important;
+    color: white;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* ズームスライダー */
+#zoom-slider-container {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 5px 15px;
+    border-radius: 20px;
+}
+
+#zoom-slider {
+    width: 100%;
+    cursor: pointer;
+}
+
+/* 専用アクションカード（Wi-Fi/連絡先用） */
+.special-card {
+    width: 100%;
+    max-width: 600px;
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 5px solid #007bff;
+    box-sizing: border-box;
+    text-align: left;
+    display: none;
+}
+
+.special-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    color: #007bff;
+}
+
+.special-info {
+    font-size: 0.9rem;
+    color: #ddd;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+/* 結果入力欄の拡大 */
+#result-text {
+    width: 100%;
+    flex-grow: 1;
+    min-height: 150px;
+    font-size: 16px;
+    padding: 15px;
+    border-radius: 5px;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+    background: #fff;
+    color: #000;
+    border: none;
+}
+
+/* 履歴リスト：横溢れ防止 */
+#history-list {
+    width: 100%;
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    text-align: left;
+    margin-bottom: 10px;
+    padding: 0 5px;
+    box-sizing: border-box;
+}
+
+.list-item {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.history-item {
+    flex-direction: column;
+    align-items: flex-start;
+    border-left: 4px solid #007bff;
+}
+
+.history-data {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    width: 100%;
+    margin: 8px 0;
+    font-size: 0.9rem;
+}
+
+/* 作成画面の入力フォーム */
+.type-select {
+    width: 100%;
+    max-width: 600px;
+    padding: 12px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 1rem;
+}
+
+.gen-inputs-container {
+    width: 100%;
+    max-width: 600px;
+}
+
+.gen-inputs-container input,
+.gen-inputs-container select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border: none;
+    box-sizing: border-box;
+    font-size: 1rem;
+}
+
+/* QRコード出力エリア（白枠付き） */
+#qrcode-output {
+    background: #fff;
+    padding: 10px;
+    display: inline-block;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+/* 共通ボタン設定 */
+.bottom-ui {
+    width: 100%;
+    max-width: 600px;
+    flex-shrink: 0;
+}
+
+.btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    margin: 5px 0;
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.btn-blue {
+    background: #007bff;
+    color: white;
+}
+
+.btn-green {
+    background: #28a745;
+    color: white;
+}
+
+.btn-gray {
+    background: #555;
+    color: white;
+}
+
+.btn-red {
+    background: #dc3545;
+    color: white;
+}
+
+/* 設定画面用スイッチ */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #444;
+    border-radius: 34px;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    border-radius: 50%;
+    transition: .4s;
+}
+
+input:checked+.slider {
+    background-color: #28a745;
+}
+
+input:checked+.slider:before {
+    transform: translateX(24px);
+}

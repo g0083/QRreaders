@@ -1,186 +1,137 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="./icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Scanner & Gen (Pro)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR Scanner Pro</title>
+    <meta name="description" content="Simple and fast QR code scanner and generator. Works offline.">
+    <meta name="keywords" content="QR Code, Scanner, Generator, PWA, Wi-Fi, vCard">
+    <meta property="og:title" content="QR Scanner Pro">
+    <meta property="og:description" content="Fast QR code scanner and generator directly in your browser.">
+    <meta property="og:type" content="website">
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-        body { font-family: sans-serif; margin: 0; background: #000; color: #fff; text-align: center; }
-        .screen { display: none; padding: 20px; flex-direction: column; align-items: center; min-height: 100vh; box-sizing: border-box; }
-        .active { display: flex; }
-        
-        /* インストールボタンのスタイル */
-        #install-area { width: 100%; display: none; margin-bottom: 10px; }
-        #install-button { width: 100%; padding: 15px; background: #ff9800; color: white; border: none; border-radius: 8px; font-weight: bold; }
-
-        #video-container { 
-            position: relative; width: 100%; max-width: 600px; 
-            overflow: hidden; background: #222; border-radius: 10px; margin-bottom: 20px;
-        }
-        video { width: 100%; height: auto; display: block; }
-        #result-area { width: 90%; max-width: 600px; }
-        textarea { width: 100%; height: 120px; font-size: 16px; padding: 10px; border-radius: 5px; box-sizing: border-box; }
-        
-        button { width: 100%; max-width: 600px; padding: 15px; margin: 10px 0; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
-        .btn-blue { background: #007bff; color: white; }
-        .btn-green { background: #28a745; color: white; }
-        .btn-gray { background: #555; color: white; }
-        #open-url-btn { display: none; }
-        #qrcode-output { margin-top: 20px; padding: 20px; background: white; border-radius: 10px; display: inline-block; }
-    </style>
 </head>
+
 <body>
 
     <div id="scanner-screen" class="screen active">
-        <div id="install-area">
-            <button id="install-button">📲 アプリをインストールする</button>
+        <div id="install-area"><button id="install-button" data-i18n="install_app">📲 アプリをインストール</button></div>
+
+        <div class="header">
+            <button id="lang-btn" class="header-btn" onclick="toggleLanguage()">🌐</button>
+            <h2>[ QR Scanner Pro ]</h2>
+            <button class="header-btn" onclick="switchScreen('settings-screen')">⚙️</button>
         </div>
 
-        <h2>[ QR Scanner ]</h2>
         <div id="video-container">
-            <video id="video" autoplay playsinline></video>
-            <canvas id="canvas" hidden></canvas>
+            <video id="video" autoplay muted playsinline></video>
+            <div class="torch-container">
+                <button id="torch-btn" class="icon-btn" onclick="toggleTorch()">🔦</button>
+            </div>
+            <div id="zoom-slider-container">
+                <input type="range" id="zoom-slider" min="1" max="1" step="0.1" value="1">
+            </div>
         </div>
-        <p>QRコードをカメラに写してください</p>
-        <button class="btn-blue" onclick="switchScreen('generator-screen')">QRコードを作成する</button>
+
+        <div class="bottom-ui">
+            <p data-i18n="scan_guide">QRコードを枠内に写すか、画像を選択してください</p>
+            <div class="btn-row">
+                <button class="btn-blue" onclick="switchScreen('generator-screen')" data-i18n="create">作成</button>
+                <button class="btn-gray" onclick="showHistory()" data-i18n="history">履歴</button>
+                <button class="btn-blue" onclick="document.getElementById('file-input').click()"
+                    style="grid-column: span 2;" data-i18n="read_from_image">🖼️ 画像から読み取る</button>
+            </div>
+            <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="readImage(event)">
+        </div>
     </div>
 
     <div id="result-screen" class="screen">
-        <h2>[ Scan Result ]</h2>
-        <div id="result-area">
-            <textarea id="result-text" readonly></textarea>
-            <button id="open-url-btn" class="btn-blue" onclick="openURL()">🔗 URLを開く</button>
-            <button class="btn-green" onclick="copyResult()">結果をコピー</button>
-            <button class="btn-gray" onclick="restartScanner()">もう一度スキャン</button>
+        <h2>[ <span data-i18n="result_title">Scan Result</span> ]</h2>
+        <div id="special-action-area" class="special-card"></div>
+        <textarea id="result-text" readonly></textarea>
+        <div class="bottom-ui">
+            <button id="open-url-btn" class="btn-blue" onclick="openURL()" style="display:none;" data-i18n="open_url">🔗
+                URLを開く</button>
+            <button class="btn-green" onclick="copyResult()" data-i18n="copy_result">結果をコピー</button>
+            <button class="btn-gray" onclick="restartScanner()" data-i18n="resume">再開</button>
         </div>
     </div>
 
-    <div id="generator-screen" class="screen">
-        <h2>[ QR Generator ]</h2>
-        <input type="text" id="qr-input" value="https://" style="width: 90%; max-width: 600px; padding: 15px; font-size: 16px; margin-bottom: 10px; box-sizing: border-box;">
-        <button class="btn-blue" onclick="generateQR()">QRコードを生成</button>
-        <div id="qrcode-output"></div>
-        <button class="btn-gray" onclick="switchScreen('scanner-screen')" style="margin-top: 30px;">スキャナーに戻る</button>
+    <div id="history-screen" class="screen">
+        <h2>[ <span data-i18n="history_title">Scan History</span> ]</h2>
+        <div id="history-list"></div>
+        <div class="bottom-ui">
+            <button class="btn-red" onclick="clearAllHistory()" data-i18n="clear_history">全ての履歴を削除</button>
+            <button class="btn-gray" onclick="switchScreen('scanner-screen')" data-i18n="back">戻る</button>
+        </div>
     </div>
 
-    <script>
-        const video = document.getElementById('video');
-        const canvasElement = document.getElementById('canvas');
-        const canvas = canvasElement.getContext('2d', { willReadFrequently: true });
-        const resultText = document.getElementById('result-text');
-        const openUrlBtn = document.getElementById('open-url-btn');
-        let isScanning = false;
+    <div id="settings-screen" class="screen">
+        <h2>[ <span data-i18n="settings_title">Settings</span> ]</h2>
+        <div class="settings-list">
+            <div class="list-item">
+                <span data-i18n="sound_setting">スキャン時の音</span>
+                <label class="switch">
+                    <input type="checkbox" id="set-sound" checked onchange="saveSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="list-item">
+                <span data-i18n="vibrate_setting">スキャン時の振動</span>
+                <label class="switch">
+                    <input type="checkbox" id="set-vibrate" checked onchange="saveSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        <div class="bottom-ui"><button class="btn-gray" onclick="switchScreen('scanner-screen')"
+                data-i18n="back">戻る</button></div>
+    </div>
 
-        // --- PWAインストール設定 ---
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('install-area').style.display = 'block';
-        });
+    <div id="generator-screen" class="screen">
+        <h2>[ <span data-i18n="generator_title">QR Generator</span> ]</h2>
 
-        document.getElementById('install-button').addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    document.getElementById('install-area').style.display = 'none';
-                }
-                deferredPrompt = null;
-            }
-        });
+        <select id="qr-type-select" onchange="updateGeneratorUI()" class="type-select">
+            <option value="url" data-i18n="type_url">🌐 URL / テキスト</option>
+            <option value="wifi" data-i18n="type_wifi">📶 Wi-Fi設定</option>
+            <option value="vcard" data-i18n="type_vcard">👤 連絡先 (vCard)</option>
+        </select>
 
-        // --- カメラ制御 (タブレット対策版) ---
-        async function startCamera() {
-            const constraints = {
-                video: {
-                    facingMode: 'environment',
-                    // 解像度をある程度固定することで、バッファのズレを防ぐ
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            };
+        <div id="gen-inputs" class="gen-inputs-container">
+            <div id="input-url">
+                <input type="text" id="qr-input-url" value="https://" placeholder="URLを入力"
+                    data-i18n-placeholder="placeholder_url">
+            </div>
+            <div id="input-wifi" style="display:none;">
+                <input type="text" id="wifi-ssid" placeholder="ネットワーク名 (SSID)" data-i18n-placeholder="placeholder_ssid">
+                <input type="text" id="wifi-pass" placeholder="パスワード" data-i18n-placeholder="placeholder_pass">
+                <select id="wifi-type">
+                    <option value="WPA">WPA/WPA2</option>
+                    <option value="WEP">WEP</option>
+                    <option value="nopass" data-i18n="no_pass">なし</option>
+                </select>
+            </div>
+            <div id="input-vcard" style="display:none;">
+                <input type="text" id="vc-name" placeholder="名前" data-i18n-placeholder="placeholder_name">
+                <input type="tel" id="vc-tel" placeholder="電話番号" data-i18n-placeholder="placeholder_tel">
+                <input type="email" id="vc-email" placeholder="メールアドレス" data-i18n-placeholder="placeholder_email">
+            </div>
+        </div>
 
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
-                
-                // 映像が実際に再生されるまで待機
-                video.onloadedmetadata = () => {
-                    video.play();
-                    isScanning = true;
-                    requestAnimationFrame(tick);
-                };
-            } catch (err) {
-                alert("カメラの接続に問題があります。");
-            }
-        }
+        <button class="btn-blue" onclick="generateQR()" data-i18n="generate_btn">QRコードを生成</button>
+        <div id="qrcode-output"></div>
+        <button id="save-qr-btn" class="btn-green" onclick="downloadQRImage()"
+            style="display:none; margin-bottom: 10px;" data-i18n="save_image">💾 画像を保存</button>
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-gray" onclick="switchScreen('scanner-screen')" data-i18n="back">戻る</button>
+    </div>
 
-        function tick() {
-            if (!isScanning) return;
-
-            // 映像が準備できていて、かつノイズを防ぐためにサイズが確定しているか確認
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                // キャンバスのサイズをビデオの解像度に合わせる
-                if (canvasElement.width !== video.videoWidth) {
-                    canvasElement.width = video.videoWidth;
-                    canvasElement.height = video.videoHeight;
-                }
-
-                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-                
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
-                });
-
-                if (code) {
-                    showResult(code.data);
-                    return;
-                }
-            }
-            requestAnimationFrame(tick);
-        }
-
-        // --- 以下、ユーティリティ機能 ---
-        function showResult(data) {
-            isScanning = false;
-            resultText.value = data;
-            openUrlBtn.style.display = (data.startsWith('http')) ? 'block' : 'none';
-            switchScreen('result-screen');
-        }
-
-        function restartScanner() {
-            switchScreen('scanner-screen');
-            isScanning = true;
-            requestAnimationFrame(tick);
-        }
-
-        function switchScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId).classList.add('active');
-            isScanning = (screenId === 'scanner-screen');
-        }
-
-        function openURL() { window.open(resultText.value, '_blank'); }
-
-        function copyResult() {
-            navigator.clipboard.writeText(resultText.value);
-            alert("コピーしました");
-        }
-
-        function generateQR() {
-            const output = document.getElementById('qrcode-output');
-            output.innerHTML = "";
-            new QRCode(output, { text: document.getElementById('qr-input').value, width: 200, height: 200 });
-        }
-
-        window.onload = startCamera;
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
-    </script>
+    <script src="script.js?v=2"></script>
 </body>
+
 </html>
